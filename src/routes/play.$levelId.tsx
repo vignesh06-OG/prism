@@ -2,7 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowLeft,
+  ChevronDown,
   Eye,
+  Settings2,
+
   Lightbulb,
   RotateCcw,
   Radio,
@@ -131,6 +134,8 @@ function LevelScreen({ levelId }: { levelId: string }) {
   const [celebrated, setCelebrated] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [commentary, setCommentary] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+
   const [audioOn, setAudioOn] = useState(false);
   const [unlocked, setUnlocked] = useState<Achievement[]>([]);
   const undosRef = useRef(0);
@@ -353,7 +358,7 @@ function LevelScreen({ levelId }: { levelId: string }) {
       )}
     >
       <AmbientBackdrop density={10} />
-      <div className="mx-auto w-full max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl">
         <motion.header
           {...fade}
           className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
@@ -412,7 +417,14 @@ function LevelScreen({ levelId }: { levelId: string }) {
         </div>
 
         <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_264px]">
-          <motion.div {...fade} className="min-w-0">
+          {/* The board owns the vertical space: it grows on tall viewports and
+              shrinks on short ones instead of leaving dead air. */}
+          <motion.div
+            {...fade}
+            className="mx-auto min-w-0 w-full"
+            style={{ maxWidth: "min(100%, calc(100dvh - 19rem))" }}
+          >
+
             <PrismBoard
               board={game.board}
               result={game.result}
@@ -597,29 +609,93 @@ function LevelScreen({ levelId }: { levelId: string }) {
               )}
             </AnimatePresence>
 
-            <div className="flex gap-2">
+            {/* Everything below is secondary: it stays one tab-stop away but
+                never competes with the board for attention. */}
+            <div className="rounded-2xl border border-border/60 bg-surface/40">
               <button
                 type="button"
-                onClick={toggleAudio}
-                aria-pressed={audioOn}
-                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-3 text-xs transition-all duration-200 hover:bg-surface-2 active:scale-95"
+                onClick={() => setOptionsOpen((o) => !o)}
+                aria-expanded={optionsOpen}
+                aria-controls="play-options"
+                className="inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl px-4 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-foreground"
               >
-                {audioOn ? (
-                  <Volume2 className="h-4 w-4 text-accent" aria-hidden="true" />
-                ) : (
-                  <VolumeX className="h-4 w-4" aria-hidden="true" />
+                <span className="inline-flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" aria-hidden="true" />
+                  Options
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-200",
+                    optionsOpen && "rotate-180",
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+
+              <AnimatePresence initial={false}>
+                {optionsOpen && (
+                  <motion.div
+                    id="play-options"
+                    key="options"
+                    initial={rm ? false : { opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: rm ? 0 : 0.25, ease: "easeOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-2 px-3 pb-3">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={toggleAudio}
+                          aria-pressed={audioOn}
+                          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-3 text-xs transition-colors hover:bg-surface-2"
+                        >
+                          {audioOn ? (
+                            <Volume2 className="h-4 w-4 text-accent" aria-hidden="true" />
+                          ) : (
+                            <VolumeX className="h-4 w-4" aria-hidden="true" />
+                          )}
+                          Adaptive score
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCommentary((c) => !c)}
+                          aria-pressed={commentary}
+                          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-3 text-xs transition-colors hover:bg-surface-2"
+                        >
+                          <Radio
+                            className={cn("h-4 w-4", commentary && "text-accent")}
+                            aria-hidden="true"
+                          />
+                          Commentary
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => togglePref("colorblind")}
+                        aria-pressed={prefs.colorblind}
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-4 text-xs transition-colors hover:bg-surface-2"
+                      >
+                        <Eye className="h-4 w-4" aria-hidden="true" />
+                        Colourblind labels {prefs.colorblind ? "on" : "off"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => togglePref("reduceMotion")}
+                        aria-pressed={prefs.reduceMotion}
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-border bg-surface/70 px-4 text-xs transition-colors hover:bg-surface-2"
+                      >
+                        Reduced motion {prefs.reduceMotion ? "on" : "off"}
+                      </button>
+                      <p className="pt-1 text-xs text-muted-foreground">
+                        Hover or tab across any cell to preview a move before you spend it.
+                        Shortcuts: <kbd>U</kbd> undo · <kbd>R</kbd> reset · <kbd>H</kbd> hint
+                      </p>
+                    </div>
+                  </motion.div>
                 )}
-                Adaptive score
-              </button>
-              <button
-                type="button"
-                onClick={() => setCommentary((c) => !c)}
-                aria-pressed={commentary}
-                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-3 text-xs transition-all duration-200 hover:bg-surface-2 active:scale-95"
-              >
-                <Radio className={cn("h-4 w-4", commentary && "text-accent")} aria-hidden="true" />
-                Commentary
-              </button>
+              </AnimatePresence>
             </div>
 
             <AnimatePresence initial={false}>
@@ -638,27 +714,6 @@ function LevelScreen({ levelId }: { levelId: string }) {
               )}
             </AnimatePresence>
 
-            <button
-              type="button"
-              onClick={() => togglePref("colorblind")}
-              aria-pressed={prefs.colorblind}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-4 text-sm transition-all duration-200 hover:bg-surface-2 active:scale-95"
-            >
-              <Eye className="h-4 w-4" aria-hidden="true" />
-              Colourblind labels {prefs.colorblind ? "on" : "off"}
-            </button>
-            <button
-              type="button"
-              onClick={() => togglePref("reduceMotion")}
-              aria-pressed={prefs.reduceMotion}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-border bg-surface/70 px-4 text-sm transition-all duration-200 hover:bg-surface-2 active:scale-95"
-            >
-              Reduced motion {prefs.reduceMotion ? "on" : "off"}
-            </button>
-
-            <p className="hidden pt-1 text-xs text-muted-foreground lg:block">
-              Hover or tab across any cell to preview the move before you spend it. Shortcuts: <kbd>U</kbd> undo · <kbd>R</kbd> reset · <kbd>H</kbd> hint
-            </p>
           </motion.aside>
         </div>
       </div>

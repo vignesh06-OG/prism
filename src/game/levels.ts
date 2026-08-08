@@ -362,14 +362,15 @@ export const LEVELS: Level[] = [
     ],
     hint: "You have been told a splitter divides a beam. Look at it the other way round: it has two ways in as well as two ways out.",
     reveal: {
-      principle: "Optical reciprocity",
+      principle: "Reciprocity — a splitter read backwards",
       casual:
-        "A splitter doesn't only divide light. Send two beams into it from different sides and they leave together, on the same path.",
+        "A splitter doesn't only divide light. In Prism, send two beams into one from different sides and they leave together, along the same path.",
       curious:
-        "Splitting is symmetric. The same surface that turns one beam into two will take two beams and merge them into one — which is why a prism can pull white apart and splitters can put it back together again.",
+        "Prism models splitting as a symmetric relationship: the element that turns one beam into two will also take two beams and carry them out as one. That is why a prism can pull white apart and splitters can put the channels back together again.",
       advanced:
-        "A beamsplitter is a reciprocal two-port: reverse the direction of propagation and the transmitted and reflected ports swap roles. Michelson and Mach–Zehnder interferometers exploit exactly this, using one element as both divider and recombiner. Prism's tracer inherits reciprocity for free — an edge carries the union of every ray crossing it, and a target sums the channel mask arriving on its edge.",
+        "Under the hood Prism is not a wave simulator. Beams are red/green/blue channel masks, an edge carries the bitwise union of every ray crossing it, and a target checks the mask arriving on its edge — so recombination is exact and deterministic by construction. Real optics does have a genuine reciprocity principle (reversing propagation swaps the transmitted and reflected roles of a beamsplitter, which is what lets interferometers use one element to divide and recombine), but real recombination depends on phase, coherence and polarisation, none of which Prism models. Treat this level as a faithful piece of optical *reasoning*, not a physically complete simulation.",
     },
+
     par: 6,
     board: board({
       width: 9,

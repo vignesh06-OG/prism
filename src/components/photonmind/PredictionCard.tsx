@@ -83,7 +83,10 @@ export function PredictionCard({
 
       <div className="relative mt-4">
         <div className="flex justify-between text-[11px] text-muted-foreground">
-          <span>Model confidence</span>
+          <span title="A heuristic self-consistency score from how far this board sits outside the training range — not a calibrated statistical interval.">
+            Model self-consistency (not a calibrated interval)
+          </span>
+
           <span className="tabular-nums text-foreground/80">{pct(prediction.confidence)}</span>
         </div>
         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">

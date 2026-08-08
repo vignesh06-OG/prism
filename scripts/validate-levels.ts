@@ -2,7 +2,7 @@
  * Campaign difficulty audit.
  *
  * For every level: BFS minimum solution depth, states explored, optimal
- * solution count, plus the beam-level genome and the PhotonMind human
+ * solution count, plus the beam-level genome and the PhotonMind
  * difficulty prediction. Used to verify the campaign curve actually rises.
  *
  * Run: bunx tsx scripts/validate-levels.ts   (or: bun scripts/validate-levels.ts)
