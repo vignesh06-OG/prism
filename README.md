@@ -116,7 +116,7 @@ Open [http://localhost:8080](http://localhost:8080) to play.
 - **Styling:** Tailwind CSS v4
 - **Motion:** Motion for React (Framer Motion v12)
 - **State:** Zustand + TanStack Query
-- **Backend:** Lovable Cloud (Supabase)
+- **Backend:** Managed Postgres + auth (Supabase)
 - **AI/ML:** Custom ridge/logistic regression with TensorFlow.js-style weights
 - **Audio:** Procedural WebAudio synthesis
 
@@ -135,7 +135,15 @@ Aiming for:
 
 ## 🤝 Team
 
-Built by **Vignesh** and an AI teammate, crafted in Lovable.
+Built by **Vignesh** for the Puzzle Masters Hackathon 2026.
+
+---
+
+## 🧠 AI-Assisted Development
+
+AI-assisted development tools were used during implementation, debugging, testing, and refinement.
+
+The game systems, optical model, puzzle mechanics, level design, BFS validation logic, PhotonMind AI/ML methodology, and all final product decisions were designed, reviewed, and verified as part of this project.
 
 ---
 
