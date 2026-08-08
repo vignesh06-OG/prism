@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Activity, Cpu, Dna, Play, Shuffle, Sparkles } from "lucide-react";
 import { PrismBoard } from "@/components/game/PrismBoard";
+import { CalibrationPanel } from "@/components/photonmind/CalibrationPanel";
+import { EvolutionPipeline } from "@/components/photonmind/EvolutionPipeline";
 import { GenomePanel } from "@/components/game/GenomePanel";
 import { FeatureImportance } from "@/components/photonmind/FeatureImportance";
 import { PredictionCard } from "@/components/photonmind/PredictionCard";
 import { SearchVisualizer } from "@/components/photonmind/SearchVisualizer";
 import { analyse, type Analysis } from "@/game/analysis";
-import { evolvePuzzles } from "@/game/evolve";
+import { evolvePuzzles, type PipelineStep } from "@/game/evolve";
 import { LEVELS } from "@/game/levels";
 import { predict } from "@/game/photonmind/predict";
 import { traceSearch, type SearchTrace } from "@/game/photonmind/search";
@@ -31,6 +33,7 @@ export default function IntelligenceLab({ reduceMotion = false }: { reduceMotion
   const [evolved, setEvolved] = useState<Source[]>([]);
   const [seed, setSeed] = useState(7);
   const [evolving, setEvolving] = useState(false);
+  const [pipeline, setPipeline] = useState<PipelineStep[]>([]);
   const [activeId, setActiveId] = useState(campaign[0]?.id ?? "");
 
   const sources = useMemo(() => [...campaign, ...evolved], [campaign, evolved]);
@@ -68,12 +71,13 @@ export default function IntelligenceLab({ reduceMotion = false }: { reduceMotion
   const evolve = useCallback(() => {
     setEvolving(true);
     window.setTimeout(() => {
-      const { kept } = evolvePuzzles({ seed, targetComplexity: 55, width: 7, height: 7 });
+      const { kept, log } = evolvePuzzles({ seed, targetComplexity: 55, width: 7, height: 7 });
       const next = kept.map((c, i) => ({
         id: `evo-${seed}-${i}`,
         title: `Evolved ${seed}·${i + 1}`,
         board: c.board,
       }));
+      setPipeline(log);
       setEvolved(next);
       if (next[0]) setActiveId(next[0].id);
       setSeed((s) => s + 1);
@@ -210,6 +214,8 @@ export default function IntelligenceLab({ reduceMotion = false }: { reduceMotion
               )}
             </AnimatePresence>
           </section>
+
+          <EvolutionPipeline log={pipeline} running={evolving} reduceMotion={reduceMotion} />
         </div>
 
         <div className="space-y-6">
@@ -221,6 +227,7 @@ export default function IntelligenceLab({ reduceMotion = false }: { reduceMotion
           />
           <GenomePanel board={active.board} reduceMotion={reduceMotion} />
           <FeatureImportance reduceMotion={reduceMotion} />
+          <CalibrationPanel />
 
           <section className="rounded-2xl border border-border bg-surface/70 p-5 text-xs backdrop-blur">
             <header className="flex items-center gap-2">

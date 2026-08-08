@@ -51,6 +51,12 @@ function LevelSelect() {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
+            to="/discoveries"
+            className="inline-flex min-h-11 items-center rounded-full border border-primary/50 bg-primary/12 px-5 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/20"
+          >
+            Discovery journal
+          </Link>
+          <Link
             to="/intelligence"
             className="inline-flex min-h-11 items-center rounded-full border border-primary/50 bg-primary/12 px-5 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/20"
           >
@@ -121,10 +127,19 @@ function LevelSelect() {
                             />
                           )}
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Par {level.par}
-                          {best !== undefined ? ` · your best ${best}` : ""}
+                        {level.concept ? (
+                          <p className="mt-1 text-xs text-primary/80">{level.concept}</p>
+                        ) : null}
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                          {level.tier ? (
+                            <span className="rounded-full border border-border bg-surface-2/70 px-2 py-0.5 text-[0.65rem] tracking-widest uppercase">
+                              {level.tier}
+                            </span>
+                          ) : null}
+                          <span>Par {level.par}</span>
+                          {best !== undefined ? <span>· your best {best}</span> : null}
                         </p>
+
                       </Link>
                     </motion.li>
                   );

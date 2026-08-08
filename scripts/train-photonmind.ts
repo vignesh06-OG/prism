@@ -135,6 +135,69 @@ for (const r of test) {
 }
 const acc = correct / Math.max(1, test.length);
 
+// ---------------------------------------------------------------------------
+// Baselines. A learned model is only worth shipping if it beats the obvious
+// alternatives, so every headline number is reported against two of them:
+//   1. mean/majority — predict the training average (or the dominant class);
+//   2. piece-count rule — the single most intuitive hand-written heuristic,
+//      fitted as a one-variable least-squares line.
+// ---------------------------------------------------------------------------
+const PIECES_IDX = FEATURE_KEYS.indexOf("pieces");
+
+const meanBaseline = (target: (r: Row) => number) => {
+  const mu = train.reduce((a, r) => a + target(r), 0) / Math.max(1, train.length);
+  const abs = test.reduce((a, r) => a + Math.abs(mu - target(r)), 0);
+  return abs / Math.max(1, test.length);
+};
+
+const pieceCountBaseline = (target: (r: Row) => number) => {
+  // Ordinary least squares on the single "pieces" feature.
+  const xs = train.map((r) => r.x[PIECES_IDX]!);
+  const ys = train.map(target);
+  const mx = xs.reduce((a, c) => a + c, 0) / Math.max(1, xs.length);
+  const my = ys.reduce((a, c) => a + c, 0) / Math.max(1, ys.length);
+  let num = 0;
+  let den = 0;
+  xs.forEach((x, i) => {
+    num += (x - mx) * (ys[i]! - my);
+    den += (x - mx) ** 2;
+  });
+  const slope = den ? num / den : 0;
+  const intercept = my - slope * mx;
+  const abs = test.reduce(
+    (a, r) => a + Math.abs(slope * r.x[PIECES_IDX]! + intercept - target(r)),
+    0,
+  );
+  return abs / Math.max(1, test.length);
+};
+
+const majority = train.reduce((a, r) => a + r.hint, 0) / Math.max(1, train.length) >= 0.5 ? 1 : 0;
+const majorityAcc =
+  test.filter((r) => r.hint === majority).length / Math.max(1, test.length);
+
+const baselines = {
+  difficultyMeanMae: meanBaseline((r) => r.difficulty),
+  difficultyPieceMae: pieceCountBaseline((r) => r.difficulty),
+  secondsMeanMae: meanBaseline((r) => r.seconds),
+  secondsPieceMae: pieceCountBaseline((r) => r.seconds),
+  hintMajorityAccuracy: majorityAcc,
+};
+
+// ---------------------------------------------------------------------------
+// The real value of the model is latency: it replaces an exhaustive BFS with a
+// 16-multiply dot product. Measure both on the same held-out boards.
+// ---------------------------------------------------------------------------
+const timedBoards = sampleBoards(999_331, 60, 7, 7);
+let t0 = performance.now();
+for (const b of timedBoards) analyse(b);
+const bfsMs = (performance.now() - t0) / timedBoards.length;
+t0 = performance.now();
+for (const b of timedBoards) {
+  const x = normalise(extractFeatures(b));
+  dot(diff.w, x);
+}
+const mlMs = (performance.now() - t0) / timedBoards.length;
+
 // Feature std on the training split drives the importance chart.
 const std = FEATURE_KEYS.map((_, i) => {
   const col = train.map((r) => r.x[i]!);
@@ -158,10 +221,21 @@ export const MODEL = {
   solveSeconds: { w: ${arr(time.w)}, b: ${time.b.toFixed(6)}, scale: ${time.scale}, mae: ${tm.mae.toFixed(3)}, r2: ${tm.r2.toFixed(4)} },
   hintRisk: { w: ${arr(hint.w)}, b: ${hint.b.toFixed(6)}, accuracy: ${acc.toFixed(4)} },
   featureStd: ${arr(std)},
+  /** Honest comparison against the obvious non-learned alternatives. */
+  baselines: {
+    difficultyMeanMae: ${baselines.difficultyMeanMae.toFixed(3)},
+    difficultyPieceMae: ${baselines.difficultyPieceMae.toFixed(3)},
+    secondsMeanMae: ${baselines.secondsMeanMae.toFixed(3)},
+    secondsPieceMae: ${baselines.secondsPieceMae.toFixed(3)},
+    hintMajorityAccuracy: ${baselines.hintMajorityAccuracy.toFixed(4)},
+  },
+  /** Mean per-board wall time, measured on 60 unseen 7x7 boards. */
+  latency: { bfsMs: ${bfsMs.toFixed(3)}, mlMs: ${mlMs.toFixed(4)} },
 } as const;
 `;
 
 writeFileSync("src/game/photonmind/model.ts", out);
 console.log(
+  `Baselines: difficulty mean MAE=${baselines.difficultyMeanMae.toFixed(2)} piece-rule MAE=${baselines.difficultyPieceMae.toFixed(2)} · hint majority=${(majorityAcc * 100).toFixed(1)}% · BFS ${bfsMs.toFixed(2)}ms vs ML ${mlMs.toFixed(3)}ms\n` +
   `Done. difficulty R²=${dm.r2.toFixed(3)} MAE=${dm.mae.toFixed(2)} · time R²=${tm.r2.toFixed(3)} · hint acc=${(acc * 100).toFixed(1)}%`,
 );

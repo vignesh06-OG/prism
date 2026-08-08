@@ -164,8 +164,33 @@ export function CinematicSolve({
                 </div>
 
                 <p className="mt-3 text-sm text-muted-foreground">
-                  {moves} {moves === 1 ? "move" : "moves"} · par {par}
+                  {moves === par
+                    ? "Perfect solve — you matched the optimal route."
+                    : moves <= par + 1
+                      ? "Efficient solve — one move from optimal."
+                      : "Solved — there is a shorter route through this puzzle."}
                 </p>
+
+                {/* Move optimisation readout: measured against the solver's optimum */}
+                <dl className="mt-4 grid grid-cols-4 gap-1 rounded-2xl border border-border bg-surface-2/60 p-3 text-center">
+                  {[
+                    { label: "Yours", value: String(moves) },
+                    { label: "Optimal", value: String(par) },
+                    {
+                      label: "Efficiency",
+                      value: `${Math.round((par / Math.max(1, moves)) * 100)}%`,
+                    },
+                    { label: "Extra", value: `+${Math.max(0, moves - par)}` },
+                  ].map((s) => (
+                    <div key={s.label}>
+                      <dt className="text-[0.6rem] tracking-widest text-muted-foreground uppercase">
+                        {s.label}
+                      </dt>
+                      <dd className="mt-0.5 text-base font-semibold tabular-nums">{s.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+
 
                 <div className="mt-5 flex justify-center gap-1 rounded-full border border-border bg-surface-2/70 p-1 text-xs">
                   {(["summary", "replay"] as const).map((t) => (

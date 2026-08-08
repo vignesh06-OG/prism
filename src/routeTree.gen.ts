@@ -14,6 +14,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as DiscoveriesIndexRouteImport } from './routes/discoveries.index'
+import { Route as ExperienceIndexRouteImport } from './routes/experience.index'
 import { Route as IntelligenceIndexRouteImport } from './routes/intelligence.index'
 import { Route as LabIndexRouteImport } from './routes/lab.index'
 import { Route as PlayIndexRouteImport } from './routes/play.index'
@@ -50,6 +52,16 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DiscoveriesIndexRoute = DiscoveriesIndexRouteImport.update({
+  id: '/discoveries/',
+  path: '/discoveries/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExperienceIndexRoute = ExperienceIndexRouteImport.update({
+  id: '/experience/',
+  path: '/experience/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IntelligenceIndexRoute = IntelligenceIndexRouteImport.update({
   id: '/intelligence/',
   path: '/intelligence/',
@@ -99,6 +111,8 @@ export interface FileRoutesByFullPath {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/play/$levelId': typeof PlayLevelIdRoute
+  '/discoveries/': typeof DiscoveriesIndexRoute
+  '/experience/': typeof ExperienceIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/lab/': typeof LabIndexRoute
   '/play/': typeof PlayIndexRoute
@@ -114,6 +128,8 @@ export interface FileRoutesByTo {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/play/$levelId': typeof PlayLevelIdRoute
+  '/discoveries': typeof DiscoveriesIndexRoute
+  '/experience': typeof ExperienceIndexRoute
   '/intelligence': typeof IntelligenceIndexRoute
   '/lab': typeof LabIndexRoute
   '/play': typeof PlayIndexRoute
@@ -130,6 +146,8 @@ export interface FileRoutesById {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/play/$levelId': typeof PlayLevelIdRoute
+  '/discoveries/': typeof DiscoveriesIndexRoute
+  '/experience/': typeof ExperienceIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/lab/': typeof LabIndexRoute
   '/play/': typeof PlayIndexRoute
@@ -147,6 +165,8 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/play/$levelId'
+    | '/discoveries/'
+    | '/experience/'
     | '/intelligence/'
     | '/lab/'
     | '/play/'
@@ -162,6 +182,8 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/play/$levelId'
+    | '/discoveries'
+    | '/experience'
     | '/intelligence'
     | '/lab'
     | '/play'
@@ -177,6 +199,8 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/play/$levelId'
+    | '/discoveries/'
+    | '/experience/'
     | '/intelligence/'
     | '/lab/'
     | '/play/'
@@ -193,6 +217,8 @@ export interface RootRouteChildren {
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   PlayLevelIdRoute: typeof PlayLevelIdRoute
+  DiscoveriesIndexRoute: typeof DiscoveriesIndexRoute
+  ExperienceIndexRoute: typeof ExperienceIndexRoute
   IntelligenceIndexRoute: typeof IntelligenceIndexRoute
   LabIndexRoute: typeof LabIndexRoute
   PlayIndexRoute: typeof PlayIndexRoute
@@ -237,6 +263,20 @@ declare module '@tanstack/react-router' {
       path: '/.well-known/oauth-protected-resource'
       fullPath: '/.well-known/oauth-protected-resource'
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discoveries/': {
+      id: '/discoveries/'
+      path: '/discoveries'
+      fullPath: '/discoveries/'
+      preLoaderRoute: typeof DiscoveriesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/experience/': {
+      id: '/experience/'
+      path: '/experience'
+      fullPath: '/experience/'
+      preLoaderRoute: typeof ExperienceIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/intelligence/': {
@@ -306,6 +346,8 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   PlayLevelIdRoute: PlayLevelIdRoute,
+  DiscoveriesIndexRoute: DiscoveriesIndexRoute,
+  ExperienceIndexRoute: ExperienceIndexRoute,
   IntelligenceIndexRoute: IntelligenceIndexRoute,
   LabIndexRoute: LabIndexRoute,
   PlayIndexRoute: PlayIndexRoute,

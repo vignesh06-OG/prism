@@ -44,12 +44,19 @@ export interface Board {
   tray: Piece[];
 }
 
+/** Coarse difficulty band, used for level presentation only. */
+export type LevelTier = "Gentle" | "Testing" | "Demanding" | "Master";
+
 export interface Level {
   id: string;
   chapter: number;
   index: number;
   name: string;
   hint: string;
+  /** The reasoning pattern this level is built around. */
+  concept?: string;
+  /** Difficulty band shown on the level card. */
+  tier?: LevelTier;
   /** Introduces a new mechanic — shown as a teaching card. */
   teaches?: string;
   par: number;

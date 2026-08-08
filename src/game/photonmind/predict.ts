@@ -110,4 +110,14 @@ export const MODEL_CARD = {
   timeR2: MODEL.solveSeconds.r2,
   hintAccuracy: MODEL.hintRisk.accuracy,
   features: FEATURE_KEYS.length,
+  baselines: MODEL.baselines,
+  latency: MODEL.latency,
+  /** Error reduction against the best non-learned alternative, 0…1. */
+  difficultyLift:
+    1 -
+    MODEL.difficulty.mae /
+      Math.min(MODEL.baselines.difficultyMeanMae, MODEL.baselines.difficultyPieceMae),
+  hintLift: MODEL.hintRisk.accuracy - MODEL.baselines.hintMajorityAccuracy,
+  speedup: MODEL.latency.bfsMs / Math.max(1e-6, MODEL.latency.mlMs),
 };
+

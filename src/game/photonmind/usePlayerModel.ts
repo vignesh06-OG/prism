@@ -25,5 +25,12 @@ export function usePlayerModel(par: number) {
     [version, par],
   );
 
-  return { behaviour, record, clear, moveCount: records.current.length };
+  return {
+    behaviour,
+    record,
+    clear,
+    moveCount: records.current.length,
+    /** Ordered cell keys the player has touched — used by the reasoning mirror. */
+    touchedCells: records.current.map((r) => r.cell),
+  };
 }

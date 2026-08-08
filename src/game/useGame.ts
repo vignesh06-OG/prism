@@ -151,3 +151,36 @@ export function useGame(level: Level): GameState {
     canUndo: history.length > 0,
   };
 }
+
+/**
+ * "What if?" — returns the board that *would* exist if the player activated
+ * this cell, without touching any state. Pure, so the UI can trace it and show
+ * the consequence of a move before the move is spent.
+ */
+export function previewMove(
+  board: Board,
+  x: number,
+  y: number,
+  selectedTrayId: string | null,
+): Board | null {
+  const k = key(x, y);
+  const piece = board.cells[k];
+  const next = cloneBoard(board);
+
+  if (!piece) {
+    if (!selectedTrayId) return null;
+    const idx = next.tray.findIndex((t) => t.id === selectedTrayId);
+    if (idx === -1) return null;
+    const [taken] = next.tray.splice(idx, 1);
+    next.cells[k] = taken!;
+    return next;
+  }
+  if (piece.fixed) return null;
+  if (ROTATABLE.has(piece.kind)) {
+    next.cells[k] = { ...piece, rot: (piece.rot + 1) % 2 };
+    return next;
+  }
+  delete next.cells[k];
+  next.tray.push(piece);
+  return next;
+}

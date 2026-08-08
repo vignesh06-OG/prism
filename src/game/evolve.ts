@@ -176,28 +176,90 @@ function score(analysis: Analysis, g: Genome, targetComplexity: number): number 
  * Grows a population, keeps only the puzzles that survive validation and
  * returns them best-first. Same seed ⇒ same puzzles, every time.
  */
+export type Verdict = "kept" | "impossible" | "trivial" | "ambiguous" | "overcooked" | "unbalanced";
+
+/** One candidate's journey through the pipeline, for the live visualiser. */
+export interface PipelineStep {
+  index: number;
+  generation: number;
+  verdict: Verdict;
+  /** Why the pipeline made that call, in plain language. */
+  reason: string;
+  minMoves: number;
+  solutionCount: number;
+  complexity: number;
+  predictedDifficulty: number;
+  fitness: number;
+  /** Wall-clock cost of simulating + solving this candidate. */
+  ms: number;
+}
+
+const VERDICT_TEXT: Record<Verdict, string> = {
+  kept: "Solvable, non-trivial and inside the target band — promoted.",
+  impossible: "No sequence of legal moves lights every target. Discarded.",
+  trivial: "Already solved on load, or one move from done. Nothing to think about.",
+  ambiguous: "Too many equally optimal solutions — the puzzle has no insight to find.",
+  overcooked: "Solution depth or complexity blew past the target band.",
+  unbalanced: "Structurally valid but scores below the fitness floor.",
+};
+
+/**
+ * Grows a population, keeps only the puzzles that survive validation and
+ * returns them best-first, along with the full audit trail of every rejection.
+ * Same seed ⇒ same puzzles, every time.
+ */
 export function evolvePuzzles({
   seed = 1,
   population = 24,
   width = 7,
   height = 7,
   targetComplexity = 55,
-}: EvolveOptions = {}): { kept: Candidate[]; tested: number; rejected: number } {
+}: EvolveOptions = {}): {
+  kept: Candidate[];
+  tested: number;
+  rejected: number;
+  log: PipelineStep[];
+} {
   const rand = rng(seed);
   const kept: Candidate[] = [];
+  const log: PipelineStep[] = [];
   let rejected = 0;
+  const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
   for (let i = 0; i < population; i++) {
     const generation = 1 + Math.floor(i / 8);
+    const t0 = now();
     const board = grow(rand, width, height, generation);
     const analysis = analyse(board);
-    if (!analysis.solvable || analysis.issues.length || analysis.minMoves === 0) {
-      rejected++;
-      continue;
-    }
-    const g = genome(board, analysis.minMoves);
-    const fitness = score(analysis, g, targetComplexity);
-    if (fitness < 0) {
+    const g = genome(board, Math.max(0, analysis.minMoves));
+    const fitness = analysis.solvable ? score(analysis, g, targetComplexity) : -1;
+
+    const verdict: Verdict = !analysis.solvable
+      ? "impossible"
+      : analysis.minMoves <= 1
+        ? "trivial"
+        : analysis.issues.length
+          ? "overcooked"
+          : analysis.solutionCount > 12
+            ? "ambiguous"
+            : fitness < 0
+              ? "unbalanced"
+              : "kept";
+
+    log.push({
+      index: i,
+      generation,
+      verdict,
+      reason: VERDICT_TEXT[verdict],
+      minMoves: analysis.minMoves,
+      solutionCount: analysis.solutionCount,
+      complexity: g.complexity,
+      predictedDifficulty: analysis.difficultyScore,
+      fitness,
+      ms: Math.round((now() - t0) * 10) / 10,
+    });
+
+    if (verdict !== "kept") {
       rejected++;
       continue;
     }
@@ -205,7 +267,7 @@ export function evolvePuzzles({
   }
 
   kept.sort((a, b) => b.fitness - a.fitness);
-  return { kept: kept.slice(0, 6), tested: population, rejected };
+  return { kept: kept.slice(0, 6), tested: population, rejected, log };
 }
 
 /**

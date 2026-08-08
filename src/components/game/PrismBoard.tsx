@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "motion/react";
 import { memo } from "react";
 import { colorGlyph, colorName, colorVar } from "@/game/engine";
-import type { Board, ColorMask, Piece, TraceResult } from "@/game/types";
+import type { Board, ColorMask, Piece, Segment, TraceResult } from "@/game/types";
 import { key } from "@/game/types";
 import { cn } from "@/lib/utils";
+
 
 const C = 100; // cell size in SVG units
 const center = (n: number) => n * C + C / 2;
@@ -33,7 +34,12 @@ interface Props {
   onInspectCell?: (cellKey: string | null) => void;
   /** Editor: allow pieces (and palette tools) to be dragged between cells. */
   onDropCell?: (from: string, to: string) => void;
+  /** "What if?" overlay: the beam field a hovered move *would* produce. */
+  ghostSegments?: Segment[] | null;
+  /** Cell the ghost preview belongs to. */
+  ghostCell?: string | null;
 }
+
 
 const spring = { type: "spring" as const, stiffness: 420, damping: 26, mass: 0.7 };
 
@@ -358,6 +364,8 @@ export const PrismBoard = memo(function PrismBoard({
   onSecondary,
   onInspectCell,
   onDropCell,
+  ghostSegments = null,
+  ghostCell = null,
 }: Props) {
   const w = board.width * C;
   const h = board.height * C;
@@ -365,6 +373,7 @@ export const PrismBoard = memo(function PrismBoard({
   const misrouted = new Set(misroutedKeys);
   const stateOf = (k: string): CellState =>
     lit.has(k) ? "lit" : misrouted.has(k) ? "misrouted" : "idle";
+
 
   return (
     <div
@@ -454,6 +463,46 @@ export const PrismBoard = memo(function PrismBoard({
             })}
           </AnimatePresence>
         </g>
+
+        {/* "What if?" ghost: the beam field this move *would* create. It is
+            drawn as an unlit dashed echo so it can never be mistaken for the
+            real light — hovering costs the player nothing. */}
+        {ghostSegments && ghostSegments.length > 0 && (
+          <g strokeLinecap="round" aria-hidden="true">
+            {ghostCell && (
+              <circle
+                cx={center(Number(ghostCell.split(",")[0]))}
+                cy={center(Number(ghostCell.split(",")[1]))}
+                r={44}
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth={2}
+                strokeDasharray="6 8"
+                opacity={0.7}
+              />
+            )}
+            {ghostSegments.map((s, i) => (
+              <line
+                key={`ghost-${i}-${s.x1},${s.y1},${s.x2},${s.y2}`}
+                x1={center(s.x1)}
+                y1={center(s.y1)}
+                x2={center(s.x2)}
+                y2={center(s.y2)}
+                stroke={colorVar(s.color as ColorMask)}
+                strokeWidth={5}
+                opacity={0.42}
+                strokeDasharray="14 12"
+                style={
+                  reduceMotion
+                    ? undefined
+                    : { animation: "beam-dash 1.1s linear infinite" }
+                }
+              />
+            ))}
+          </g>
+        )}
+
+
 
         {/* Pieces */}
         <AnimatePresence initial={false}>
