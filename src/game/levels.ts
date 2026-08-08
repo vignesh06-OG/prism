@@ -329,6 +329,70 @@ export const LEVELS: Level[] = [
       ],
     }),
   },
+  /**
+   * THE MASTER TRIAL.
+   *
+   * Chapter 2 taught that a prism takes white light apart. Chapter 3 taught
+   * that channels add where beams meet. Chapter 4 taught backward reasoning.
+   * This trial asks the campaign's question in reverse: the lock needs white,
+   * the prism has already destroyed white, and the only edge that reaches the
+   * lock is a single corridor — so the three channels must be walking that
+   * corridor *together*.
+   *
+   * The obvious strategy (aim a colour at the lock) fails for a stated reason:
+   * a target must receive exactly its colour, and no single channel is white.
+   * The discovery is that a splitter is reciprocal — two beams entering from
+   * different sides leave on one shared path. The splitter already sitting at
+   * 7,4 does this in plain sight; the tray splitter is the player's to find.
+   *
+   * Solver-verified: exactly one solution, 6 moves, no alternative placement.
+   */
+  {
+    id: "5-1",
+    chapter: 5,
+    index: 1,
+    name: "Reciprocity",
+    concept: "Two beams, one edge",
+    tier: "Master",
+    master: true,
+    hints: [
+      "Read the lock first. It wants white — and white is the one colour the prism guarantees you will never have again.",
+      "The lock only touches one edge of the board. Whatever reaches it has to be travelling along that single corridor at the same time.",
+      "You have been told a splitter divides a beam. Look at it the other way round: it has two ways in as well as two ways out.",
+    ],
+    hint: "You have been told a splitter divides a beam. Look at it the other way round: it has two ways in as well as two ways out.",
+    reveal: {
+      principle: "Optical reciprocity",
+      casual:
+        "A splitter doesn't only divide light. Send two beams into it from different sides and they leave together, on the same path.",
+      curious:
+        "Splitting is symmetric. The same surface that turns one beam into two will take two beams and merge them into one — which is why a prism can pull white apart and splitters can put it back together again.",
+      advanced:
+        "A beamsplitter is a reciprocal two-port: reverse the direction of propagation and the transmitted and reflected ports swap roles. Michelson and Mach–Zehnder interferometers exploit exactly this, using one element as both divider and recombiner. Prism's tracer inherits reciprocity for free — an edge carries the union of every ray crossing it, and a target sums the channel mask arriving on its edge.",
+    },
+    par: 6,
+    board: board({
+      width: 9,
+      height: 9,
+      cells: [
+        [0, 4, emitter(1)],
+        // Takes white apart: red straight on, green north, blue south.
+        [2, 4, p({ kind: "prism", rot: 0, fixed: true })],
+        // Keeps the main line honest — only red may travel east from here.
+        [3, 4, p({ kind: "filter", rot: 0, color: RED, fixed: true })],
+        [2, 1, mirror(1)],
+        [4, 1, mirror(0)],
+        // The green junction is empty. The tray piece belongs here.
+        [4, 5, wall()],
+        [2, 7, mirror(0)],
+        [7, 7, mirror(1)],
+        // Already aimed correctly: the affordance, shown and never explained.
+        [7, 4, splitter(0)],
+        [8, 4, target(WHITE)],
+      ],
+      tray: [splitter(0)],
+    }),
+  },
 ];
 
 export const getLevel = (id: string) => LEVELS.find((l) => l.id === id);
@@ -369,5 +433,12 @@ export const CHAPTERS = [
     subtitle: "Master light",
     blurb:
       "Long optical paths, several sources and no spare moves. The final lock has to be solved backwards, from the colour it demands to the light that can supply it.",
+  },
+  {
+    n: 5,
+    name: "The Master Trial",
+    subtitle: "Question light",
+    blurb:
+      "One puzzle. Everything the campaign taught you about taking light apart, asked backwards.",
   },
 ];

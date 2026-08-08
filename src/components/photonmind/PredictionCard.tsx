@@ -58,7 +58,7 @@ export function PredictionCard({
       <div className="relative mt-4 grid grid-cols-3 gap-3">
         {[
           { icon: Gauge, label: "Difficulty", value: `${prediction.difficulty}`, sub: prediction.rating },
-          { icon: Timer, label: "Human solve", value: `${prediction.solveSeconds}s`, sub: "median estimate" },
+          { icon: Timer, label: "Solve cost", value: `${prediction.solveSeconds}s`, sub: "solver-derived proxy" },
           {
             icon: TriangleAlert,
             label: "Hint risk",

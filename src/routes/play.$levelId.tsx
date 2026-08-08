@@ -16,6 +16,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AchievementToast } from "@/components/game/AchievementToast";
 import { AmbientBackdrop } from "@/components/game/AmbientBackdrop";
 import { CinematicSolve } from "@/components/game/CinematicSolve";
+import { MasterIntro } from "@/components/game/MasterIntro";
+import { PrincipleReveal } from "@/components/game/PrincipleReveal";
 import { CommentaryPanel } from "@/components/game/CommentaryPanel";
 import { DiscoveryToast } from "@/components/game/DiscoveryToast";
 import { PrismBoard } from "@/components/game/PrismBoard";
@@ -118,6 +120,14 @@ function LevelScreen({ levelId }: { levelId: string }) {
   const [hintLevel, setHintLevel] = useState(0);
   const [prefs, setPrefs] = useState({ colorblind: false, reduceMotion: false, highContrast: false });
   const [showTeach, setShowTeach] = useState(!!level.teaches);
+  // Master Trials open on a title card instead of a tutorial.
+  const [introOpen, setIntroOpen] = useState(!!level.master);
+  // Authored trials carry their own ladder of hints; every other level keeps
+  // the two-step tutor (a way of thinking, then the level's own nudge).
+  const hints = useMemo(
+    () => level.hints ?? [firstNudge(level), level.hint],
+    [level],
+  );
   const [celebrated, setCelebrated] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [commentary, setCommentary] = useState(false);
@@ -283,12 +293,12 @@ function LevelScreen({ levelId }: { levelId: string }) {
         game.undo();
       }
       else if (k === "r") restart();
-      else if (k === "h") setHintLevel((h) => Math.min(h + 1, 2));
+      else if (k === "h") setHintLevel((h) => Math.min(h + 1, hints.length));
       else if (k === "escape") setShowTeach(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [game, restart]);
+  }, [game, restart, hints.length]);
 
   const togglePref = (k: "colorblind" | "reduceMotion") => {
     const updated = { ...prefs, [k]: !prefs[k] };
@@ -529,16 +539,16 @@ function LevelScreen({ levelId }: { levelId: string }) {
 
             <button
               type="button"
-              onClick={() => setHintLevel((h) => Math.min(h + 1, 2))}
-              disabled={hintLevel >= 2}
+              onClick={() => setHintLevel((h) => Math.min(h + 1, hints.length))}
+              disabled={hintLevel >= hints.length}
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 text-sm font-medium transition-all duration-200 hover:bg-accent/20 active:scale-95 disabled:opacity-50"
             >
               <Lightbulb className="h-4 w-4 text-accent" aria-hidden="true" />
               {hintLevel === 0
                 ? "Stuck? Get a nudge"
-                : hintLevel === 1
-                  ? "Tell me more"
-                  : "That's every hint"}
+                : hintLevel >= hints.length
+                  ? "That's every hint"
+                  : "Tell me more"}
             </button>
 
             <AnimatePresence initial={false}>
@@ -557,7 +567,7 @@ function LevelScreen({ levelId }: { levelId: string }) {
                       Tutor
                     </p>
                     <p className="mt-2 text-muted-foreground">
-                      {hintLevel === 1 ? firstNudge(level) : level.hint}
+                      {hints[hintLevel - 1]}
                     </p>
 
                   </div>
@@ -713,6 +723,8 @@ function LevelScreen({ levelId }: { levelId: string }) {
         )}
       </AnimatePresence>
 
+      <MasterIntro open={introOpen} onDone={() => setIntroOpen(false)} reduceMotion={rm} />
+
       <AchievementToast unlocked={unlocked} reduceMotion={rm} />
 
       <DiscoveryToast
@@ -737,6 +749,9 @@ function LevelScreen({ levelId }: { levelId: string }) {
         reduceMotion={rm}
         actions={
           <>
+            {level.reveal ? (
+              <PrincipleReveal reveal={level.reveal} reduceMotion={rm} />
+            ) : null}
             {next ? (
               <button
                 type="button"

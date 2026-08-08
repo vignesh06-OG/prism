@@ -59,6 +59,20 @@ export interface Level {
   tier?: LevelTier;
   /** Introduces a new mechanic — shown as a teaching card. */
   teaches?: string;
+  /**
+   * Progressive hints for authored trials. Each entry reveals one more
+   * *concept* than the last — never a move, never a coordinate.
+   */
+  hints?: string[];
+  /** Master Trial: gets the title sequence and the principle reveal. */
+  master?: boolean;
+  /** Post-solve explanation at three depths. Teaches, never congratulates. */
+  reveal?: {
+    principle: string;
+    casual: string;
+    curious: string;
+    advanced: string;
+  };
   par: number;
   board: Board;
 }
