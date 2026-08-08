@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://afltzbirsqokdsglelku.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "puzzle-genesis-engine",
+      "version": "0.1.0",
+      "title": "Puzzle Genesis Engine"
+    },
+    "tools": [
+      {
+        "name": "list_levels",
+        "title": "List campaign levels",
+        "description": "List every Prism campaign level with its chapter, name, par move count and teaching note.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_level",
+        "title": "Get a level",
+        "description": "Fetch one Prism campaign level by id (for example '2-3'), including its board layout and a shareable puzzle code.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "levelId": {
+              "type": "string",
+              "description": "Level id such as '1-1' or '4-3'."
+            }
+          },
+          "required": [
+            "levelId"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "analyze_puzzle",
+        "title": "Analyze a puzzle",
+        "description": "Run the Prism solver on a puzzle (share code or campaign level id) and report solvability, minimum moves, uniqueness, difficulty rating and complexity genome.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "puzzle": {
+              "type": "string",
+              "description": "A PRISM-... share code, or a campaign level id such as '3-2'."
+            }
+          },
+          "required": [
+            "puzzle"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "generate_puzzle",
+        "title": "Generate puzzles",
+        "description": "Evolve new Prism puzzles deterministically from a seed. Every returned puzzle is verified solvable and comes with a share code that opens in the app's Studio.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "Seed for the deterministic generator."
+            },
+            "targetComplexity": {
+              "type": "number",
+              "description": "Desired difficulty band from 0 (trivial) to 100 (master)."
+            },
+            "size": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "Board width and height in cells, typically 5 to 9."
+            }
+          },
+          "required": [
+            "seed",
+            "targetComplexity",
+            "size"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
