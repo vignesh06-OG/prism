@@ -16,6 +16,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Etch, Fibre, Readout } from "@/components/chrome/instrument";
 import { AchievementToast } from "@/components/game/AchievementToast";
 import { AmbientBackdrop } from "@/components/game/AmbientBackdrop";
 import { CinematicSolve } from "@/components/game/CinematicSolve";
@@ -23,24 +24,36 @@ import { MasterIntro } from "@/components/game/MasterIntro";
 import { PrincipleReveal } from "@/components/game/PrincipleReveal";
 import { CommentaryPanel } from "@/components/game/CommentaryPanel";
 import { DiscoveryToast } from "@/components/game/DiscoveryToast";
+import { LawsRail } from "@/components/game/LawsRail";
 import { PrismBoard } from "@/components/game/PrismBoard";
 import { CoachPanel } from "@/components/photonmind/CoachPanel";
+import { DirectorPanel } from "@/components/photonmind/DirectorPanel";
 import { SolveTimeline } from "@/components/game/SolveTimeline";
 import { evaluate, type Achievement } from "@/game/achievements";
 import { setAudioEnabled } from "@/game/audio";
 import { useAdaptiveAudio } from "@/game/useAdaptiveAudio";
 import { colorGlyph, colorName, trace } from "@/game/engine";
+import { getLesson } from "@/game/lessons";
 import { getLevel, nextLevel } from "@/game/levels";
 import { loadPrefs, recordSolve, savePrefs } from "@/game/progress";
-import { detect, loadDepth, recordDiscoveries, saveDepth, type Depth } from "@/game/discoveries";
+import {
+  detect,
+  loadDepth,
+  loadDiscovered,
+  recordDiscoveries,
+  saveDepth,
+  type Depth,
+} from "@/game/discoveries";
 import { previewMove, useGame } from "@/game/useGame";
 import { usePlayerModel } from "@/game/photonmind/usePlayerModel";
+import { direct } from "@/game/photonmind/director";
 import { predict } from "@/game/photonmind/predict";
 import { forwardBiasOf, recordSolveRow } from "@/game/photonmind/calibration";
 import { analyse } from "@/game/analysis";
 import type { Board } from "@/game/types";
 import type { Level, Piece } from "@/game/types";
 import { cn } from "@/lib/utils";
+
 
 
 export const Route = createFileRoute("/play/$levelId")({
@@ -145,15 +158,33 @@ function LevelScreen({ levelId }: { levelId: string }) {
   const [hoverCell, setHoverCell] = useState<string | null>(null);
   const [depth, setDepth] = useState<Depth>("beginner");
   const [freshDiscoveries, setFreshDiscoveries] = useState<string[]>([]);
+  const [discovered, setDiscovered] = useState<string[]>([]);
+  // Director telemetry that the game loop does not already track.
+  const [resets, setResets] = useState(0);
+  const [solutionRequested, setSolutionRequested] = useState(false);
+  const [idleMs, setIdleMs] = useState(0);
+  const lastMoveAt = useRef(Date.now());
   const next = nextLevel(levelId);
   const rm = prefs.reduceMotion;
 
   useEffect(() => {
     setPrefs(loadPrefs());
     setDepth(loadDepth());
+    setDiscovered(loadDiscovered());
   }, []);
 
+  // Idle clock — coarse on purpose: the director only needs tens of seconds,
+  // and a slow tick keeps this off the interaction path.
+  useEffect(() => {
+    lastMoveAt.current = Date.now();
+    setIdleMs(0);
+    if (game.result.solved) return;
+    const id = window.setInterval(() => setIdleMs(Date.now() - lastMoveAt.current), 5_000);
+    return () => window.clearInterval(id);
+  }, [game.moves, game.result.solved]);
+
   useAdaptiveAudio(game.result, game.litKeys.length, audioOn);
+
 
   /**
    * "What if?" — trace the board the hovered move *would* produce and show it
@@ -185,8 +216,12 @@ function LevelScreen({ levelId }: { levelId: string }) {
     // level ships with — the player has to have changed something.
     if (game.moves === 0) return;
     const fresh = recordDiscoveries(detect(game.result, game.board));
-    if (fresh.length) setFreshDiscoveries((prev) => [...prev, ...fresh]);
+    if (fresh.length) {
+      setFreshDiscoveries((prev) => [...prev, ...fresh]);
+      setDiscovered((prev) => [...prev, ...fresh]);
+    }
   }, [game.result, game.board, game.moves]);
+
 
   // The model commits to a prediction before the attempt, so the calibration
   // ledger compares a real forecast against a real outcome.
@@ -284,7 +319,10 @@ function LevelScreen({ levelId }: { levelId: string }) {
     player.clear();
     setCelebrated(false);
     setNudgeDismissed(false);
+    setResets((r) => r + 1);
+    setSolutionRequested(false);
   }, [game, player]);
+
 
   // Keyboard shortcuts — desktop players never have to reach for the mouse.
   useEffect(() => {
@@ -316,6 +354,48 @@ function LevelScreen({ levelId }: { levelId: string }) {
   const stars = Math.max(0, 3 - Math.max(0, game.moves - level.par));
   const progress = targetCount ? solvedCount / targetCount : 0;
 
+  /**
+   * The Game Director. Pure, cheap, and recomputed only from telemetry the
+   * game already holds — it never runs the solver on the interaction path.
+   */
+  const decision = useMemo(
+    () =>
+      direct({
+        moves: game.moves,
+        par: level.par,
+        undos: undosRef.current,
+        resets,
+        idleMs,
+        hintsRequested: hintLevel,
+        solutionRequested,
+        solvedCount,
+        targetCount,
+        misrouted,
+        behaviour: player.behaviour,
+        solution: solutionBoard,
+        board: game.board,
+      }),
+    [
+      game.moves,
+      game.board,
+      level.par,
+      resets,
+      idleMs,
+      hintLevel,
+      solutionRequested,
+      solvedCount,
+      targetCount,
+      misrouted,
+      player.behaviour,
+      solutionBoard,
+    ],
+  );
+
+  /**
+   * Failure feedback separates *path*, *colour* and *nothing arriving*, so a
+   * wrong attempt teaches which kind of mistake it was without explaining the
+   * puzzle away.
+   */
   const status = solved
     ? { tone: "good" as const, text: "Every target is burning the right colour." }
     : misrouted
@@ -323,18 +403,20 @@ function LevelScreen({ levelId }: { levelId: string }) {
           tone: "bad" as const,
           text:
             misrouted === 1
-              ? "One target is getting the wrong mix of light."
-              : `${misrouted} targets are getting the wrong mix of light.`,
+              ? "Path is valid — channel is wrong. One target receives light but rejects the mix."
+              : `Path is valid — channel is wrong. ${misrouted} targets receive light but reject the mix.`,
         }
       : solvedCount
         ? {
             tone: "mid" as const,
-            text: `${solvedCount} of ${targetCount} lit — keep routing.`,
+            text: `${solvedCount} of ${targetCount} accepted. The rest receive nothing yet — that is a path problem.`,
           }
         : {
             tone: "mid" as const,
             text: "No light is landing yet. Follow the beam and find the first turn.",
           };
+
+
 
   const fade = rm
     ? { initial: false as const, animate: { opacity: 1 }, transition: { duration: 0 } }
@@ -350,372 +432,388 @@ function LevelScreen({ levelId }: { levelId: string }) {
     void setAudioEnabled(on);
   };
 
+  const statusTone =
+    status.tone === "bad"
+      ? "text-destructive"
+      : status.tone === "good"
+        ? "text-primary"
+        : "text-muted-foreground";
+
   return (
     <main
       className={cn(
-        "flex min-h-dvh flex-col justify-center aurora px-4 py-6 sm:px-6",
+        "chamber grain relative flex min-h-dvh flex-col overflow-x-hidden px-4 sm:px-6 bench:h-dvh bench:overflow-hidden",
         rm && "reduce-motion",
       )}
     >
       <AmbientBackdrop density={10} />
-      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl">
-        <motion.header
-          {...fade}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
+
+      {/* Instrument header. Nothing is a pill: readouts are etched into the
+          bench and separated by hairlines, the way a real optical rig labels
+          its channels. */}
+      <motion.header
+        {...fade}
+        className="relative z-10 mx-auto grid w-full max-w-[76rem] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 pt-4 pb-3 sm:gap-5"
+      >
+        <Link
+          to="/play"
+          aria-label="Back to puzzle list"
+          className="optic-control grid h-10 w-10 shrink-0 place-items-center"
         >
-          <div className="flex min-w-0 items-center gap-3">
-            <Link
-              to="/play"
-              aria-label="Back to puzzle list"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-surface/70 transition-all duration-200 hover:-translate-x-0.5 hover:bg-surface-2"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            </Link>
-            <div className="min-w-0">
-              <p className="text-xs tracking-widest text-muted-foreground uppercase">
-                Chapter {level.chapter} · {level.index}
-                {level.tier ? ` · ${level.tier}` : ""}
-              </p>
-              <h1 className="text-xl leading-tight font-extrabold text-balance sm:text-2xl">
-                {level.name}
-              </h1>
-              {level.concept ? (
-                <p className="text-xs text-primary/80">{level.concept}</p>
-              ) : null}
-            </div>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        </Link>
 
-          </div>
-          <div className="flex shrink-0 items-center gap-2 text-sm">
-            <motion.span
-              key={game.moves}
-              initial={rm ? false : { scale: 0.8, opacity: 0.4 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 22 }}
-              className={cn(
-                "rounded-full border px-3 py-1.5 tabular-nums transition-colors",
-                game.overPar
-                  ? "border-accent/50 bg-accent/10 text-foreground"
-                  : "border-border bg-surface/70",
-              )}
-            >
-              {game.moves} / par {level.par}
-            </motion.span>
-            <span className="rounded-full border border-border bg-surface/70 px-3 py-1.5 tabular-nums">
-              {solvedCount}/{targetCount} lit
-            </span>
-          </div>
-        </motion.header>
-
-        {/* Target progress rail */}
-        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-          <motion.div
-            className="h-full rounded-full bg-primary"
-            style={{ boxShadow: "var(--shadow-glow)" }}
-            animate={{ width: `${progress * 100}%` }}
-            transition={rm ? { duration: 0 } : { type: "spring", stiffness: 180, damping: 26 }}
-          />
+        <div className="min-w-0">
+          <span className="etch block truncate">
+            Ch {level.chapter} · {level.index}
+            {level.tier ? ` · ${level.tier}` : ""}
+            {level.concept ? (
+              <span className="text-primary/85"> · {level.concept}</span>
+            ) : null}
+          </span>
+          <h1 className="mt-1.5 truncate font-display text-lg leading-none font-extrabold sm:text-xl">
+            {level.name}
+          </h1>
         </div>
 
-        <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_264px]">
-          {/* The board owns the vertical space: it grows on tall viewports and
-              shrinks on short ones instead of leaving dead air. */}
-          <motion.div
-            {...fade}
-            className="mx-auto min-w-0 w-full"
-            style={{ maxWidth: "min(100%, calc(100dvh - 19rem))" }}
+        <div className="flex shrink-0 items-stretch gap-3.5 sm:gap-5">
+          <Readout
+            label="Moves"
+            alert={game.overPar}
+            value={
+              <motion.span
+                key={game.moves}
+                initial={rm ? false : { scale: 0.82, opacity: 0.4 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                className="inline-block"
+              >
+                {game.moves}
+                <span className="text-muted-foreground"> / {level.par}</span>
+              </motion.span>
+            }
+          />
+          <span
+            className="w-px self-stretch bg-[var(--hairline)]"
+            aria-hidden="true"
+          />
+          <Readout label="Targets lit" value={`${solvedCount} / ${targetCount}`} />
+        </div>
+      </motion.header>
+
+      {/* Progress is never a bar in a track — it is light travelling a fibre. */}
+      <Fibre
+        value={progress}
+        reduceMotion={rm}
+        className="relative z-10 mx-auto w-full max-w-[76rem] shrink-0"
+      />
+
+      <div className="relative z-10 mx-auto grid min-h-0 w-full max-w-[76rem] flex-1 grid-cols-1 gap-x-7 gap-y-6 py-4 bench:my-auto bench:max-h-[54rem] bench:grid-cols-[minmax(0,1fr)_17.5rem]">
+        {/* The board owns every spare pixel of the chamber: it grows into tall
+            viewports instead of floating in dead air. */}
+        <motion.div {...fade} className="flex min-h-0 min-w-0 flex-col gap-3">
+          <div className="grid min-h-0 flex-1 place-items-center">
+            <div className="board-frame">
+              <PrismBoard
+                board={game.board}
+                result={game.result}
+                onActivate={game.activate}
+                colorblind={prefs.colorblind}
+                placing={!!game.selectedTrayId}
+                reduceMotion={rm}
+                litKeys={game.litKeys}
+                misroutedKeys={game.misroutedKeys}
+                lastTouched={game.lastTouched}
+                onInspectCell={setHoverCell}
+                ghostSegments={ghost?.segments ?? null}
+                ghostCell={ghost ? hoverCell : null}
+              />
+            </div>
+          </div>
+
+          {/* Live status. The game always says what is wrong — expressed as a
+              signal lamp on the bench, not as an alert card. */}
+          <div
+            aria-live="polite"
+            className="bench-top flex shrink-0 items-start gap-2.5 pt-3 text-[0.8125rem]"
           >
-
-            <PrismBoard
-              board={game.board}
-              result={game.result}
-              onActivate={game.activate}
-              colorblind={prefs.colorblind}
-              placing={!!game.selectedTrayId}
-              reduceMotion={rm}
-              litKeys={game.litKeys}
-              misroutedKeys={game.misroutedKeys}
-              lastTouched={game.lastTouched}
-              onInspectCell={setHoverCell}
-              ghostSegments={ghost?.segments ?? null}
-              ghostCell={ghost ? hoverCell : null}
-            />
-
-
-            {/* Live status — the game always says what is wrong, never just fails. */}
-            <div
-              aria-live="polite"
+            <span
               className={cn(
-                "mt-4 flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm transition-colors duration-300",
-                status.tone === "bad"
-                  ? "border-destructive/40 bg-destructive/10 text-foreground"
-                  : status.tone === "good"
-                    ? "border-primary/40 bg-primary/10"
-                    : "border-border bg-surface/60",
+                "mt-[0.3rem] h-2 w-2 shrink-0 rounded-full bg-current",
+                statusTone,
+                status.tone === "bad" && "animate-shake",
+                status.tone === "good" && !rm && "lens-breathe",
               )}
-            >
-              {status.tone === "bad" ? (
-                <TriangleAlert
-                  className="h-4 w-4 shrink-0 text-destructive animate-shake"
-                  aria-hidden="true"
-                />
+              style={{ boxShadow: "0 0 12px 0 currentColor" }}
+              aria-hidden="true"
+            />
+            <p className="min-w-0 flex-1 leading-snug text-pretty">
+              {ghost ? (
+                <>
+                  <span className="etch mr-1.5 text-accent">What if</span>
+                  {ghost.verdict}
+                </>
               ) : (
-                <Sparkles
-                  className={cn(
-                    "h-4 w-4 shrink-0",
-                    status.tone === "good" ? "text-primary" : "text-muted-foreground",
-                  )}
-                  aria-hidden="true"
-                />
+                status.text
               )}
-              <p className="min-w-0">
-                {ghost ? (
-                  <>
-                    <span className="font-display text-[11px] tracking-widest text-accent uppercase">
-                      What if ·{" "}
-                    </span>
-                    {ghost.verdict}
-                  </>
-                ) : (
-                  status.text
-                )}
-              </p>
+            </p>
+          </div>
 
-            </div>
-
-            {game.board.tray.length > 0 && (
-              <div className="mt-3 rounded-2xl border border-border bg-surface/60 p-3 backdrop-blur">
-                <p className="mb-2 text-xs tracking-widest text-muted-foreground uppercase">
-                  Tray — pick a piece, then tap a cell
-                </p>
-                <ul className="flex flex-wrap gap-2">
-                  <AnimatePresence initial={false}>
-                    {game.board.tray.map((piece) => {
-                      const active = game.selectedTrayId === piece.id;
-                      return (
-                        <motion.li
-                          key={piece.id}
-                          layout={!rm}
-                          initial={rm ? false : { opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.8 }}
-                          transition={{ type: "spring", stiffness: 420, damping: 28 }}
+          {game.board.tray.length > 0 && (
+            <div className="bench-top shrink-0 pt-3">
+              <Etch>Tray — select, then place</Etch>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                <AnimatePresence initial={false}>
+                  {game.board.tray.map((piece) => {
+                    const active = game.selectedTrayId === piece.id;
+                    return (
+                      <motion.li
+                        key={piece.id}
+                        layout={!rm}
+                        initial={rm ? false : { opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            game.setSelectedTrayId(active ? null : piece.id)
+                          }
+                          aria-pressed={active}
+                          className={cn(
+                            "optic-control inline-flex min-h-10 items-center gap-2 px-3.5 text-[0.8125rem] active:scale-[0.97]",
+                            active && "optic-control-live",
+                          )}
                         >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              game.setSelectedTrayId(active ? null : piece.id)
-                            }
-                            aria-pressed={active}
-                            className={cn(
-                              "inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition-all duration-200 active:scale-95",
-                              active
-                                ? "border-primary bg-primary/15 text-foreground shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]"
-                                : "border-border bg-surface-2 hover:-translate-y-0.5 hover:border-primary/50",
-                            )}
-                          >
-                            {piece.kind === "filter" && (
-                              <span aria-hidden="true">{colorGlyph(piece.color ?? 7)}</span>
-                            )}
-                            {trayLabel(piece)}
-                          </button>
-                        </motion.li>
-                      );
-                    })}
-                  </AnimatePresence>
-                </ul>
-              </div>
-            )}
-          </motion.div>
-
-          <motion.aside {...fade} className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  undosRef.current += 1;
-                  game.undo();
-                }}
-                disabled={!game.canUndo}
-                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-4 text-sm transition-all duration-200 hover:bg-surface-2 active:scale-95 disabled:opacity-40 disabled:active:scale-100"
-              >
-                <Undo2 className="h-4 w-4" aria-hidden="true" /> Undo
-              </button>
-              <button
-                type="button"
-                onClick={restart}
-                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-4 text-sm transition-all duration-200 hover:bg-surface-2 active:scale-95"
-              >
-                <RotateCcw className="h-4 w-4" aria-hidden="true" /> Reset
-              </button>
+                          {piece.kind === "filter" && (
+                            <span aria-hidden="true">{colorGlyph(piece.color ?? 7)}</span>
+                          )}
+                          {trayLabel(piece)}
+                        </button>
+                      </motion.li>
+                    );
+                  })}
+                </AnimatePresence>
+              </ul>
             </div>
+          )}
+        </motion.div>
 
+        {/* The instrument rail. One machined surface divided by hairlines —
+            deliberately not a column of cards. */}
+        <motion.aside
+          {...fade}
+          className="grid min-h-0 gap-x-9 gap-y-4 sm:grid-cols-2 bench:flex bench:flex-col bench:gap-3.5 bench:overflow-y-auto bench:border-l bench:border-[var(--hairline)] bench:pl-6"
+        >
+          <div className="grid grid-cols-2 gap-1.5">
             <button
               type="button"
-              onClick={() => setHintLevel((h) => Math.min(h + 1, hints.length))}
-              disabled={hintLevel >= hints.length}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 text-sm font-medium transition-all duration-200 hover:bg-accent/20 active:scale-95 disabled:opacity-50"
+              onClick={() => {
+                undosRef.current += 1;
+                game.undo();
+              }}
+              disabled={!game.canUndo}
+              className="optic-control inline-flex min-h-10 items-center justify-center gap-2 px-3 text-[0.8125rem] active:scale-[0.97]"
             >
-              <Lightbulb className="h-4 w-4 text-accent" aria-hidden="true" />
-              {hintLevel === 0
-                ? "Stuck? Get a nudge"
-                : hintLevel >= hints.length
-                  ? "That's every hint"
-                  : "Tell me more"}
+              <Undo2 className="h-3.5 w-3.5" aria-hidden="true" /> Undo
+            </button>
+            <button
+              type="button"
+              onClick={restart}
+              className="optic-control inline-flex min-h-10 items-center justify-center gap-2 px-3 text-[0.8125rem] active:scale-[0.97]"
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reset
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setHintLevel((h) => Math.min(h + 1, hints.length))}
+            disabled={hintLevel >= hints.length}
+            className={cn(
+              "optic-control inline-flex min-h-10 w-full items-center justify-center gap-2 px-4 text-[0.8125rem] font-medium active:scale-[0.97]",
+              hintLevel > 0 && hintLevel < hints.length && "optic-control-live",
+            )}
+          >
+            <Lightbulb className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+            {hintLevel === 0
+              ? "Stuck? Get a nudge"
+              : hintLevel >= hints.length
+                ? "That's every hint"
+                : "Tell me more"}
+          </button>
+
+          <AnimatePresence initial={false}>
+            {hintLevel > 0 && (
+              <motion.div
+                key={hintLevel}
+                initial={rm ? false : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: rm ? 0 : 0.3, ease: "easeOut" }}
+                className="overflow-hidden"
+                aria-live="polite"
+              >
+                <div className="bench-top pt-3">
+                  <Etch tone="accent">Tutor</Etch>
+                  <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
+                    {hints[hintLevel - 1]}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <LawsRail discovered={discovered} reduceMotion={rm} />
+
+          {!game.result.solved && (
+            <DirectorPanel
+              decision={decision}
+              reduceMotion={rm}
+              onRequestSolution={() => setSolutionRequested(true)}
+            />
+          )}
+
+          <AnimatePresence initial={false}>
+            {(hintLevel > 0 || game.struggling) && !game.result.solved && (
+              <motion.div
+                key="coach"
+                initial={rm ? false : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: rm ? 0 : 0.3, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <CoachPanel
+                  board={game.board}
+                  solution={solutionBoard}
+                  behaviour={player.behaviour}
+                  par={level.par}
+                  moves={game.moves}
+                  reduceMotion={rm}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Everything below is secondary: one tab-stop away, never competing
+              with the board for attention. */}
+          <div className="bench-top">
+            <button
+              type="button"
+              onClick={() => setOptionsOpen((o) => !o)}
+              aria-expanded={optionsOpen}
+              aria-controls="play-options"
+              className="inline-flex min-h-10 w-full items-center justify-between gap-2 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <Etch>Options</Etch>
+              </span>
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform duration-200",
+                  optionsOpen && "rotate-180",
+                )}
+                aria-hidden="true"
+              />
             </button>
 
             <AnimatePresence initial={false}>
-              {hintLevel > 0 && (
+              {optionsOpen && (
                 <motion.div
-                  key={hintLevel}
+                  id="play-options"
+                  key="options"
                   initial={rm ? false : { opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: rm ? 0 : 0.3, ease: "easeOut" }}
-                  className="overflow-hidden rounded-2xl border border-accent/30 bg-surface/70 text-sm backdrop-blur"
-                  aria-live="polite"
+                  transition={{ duration: rm ? 0 : 0.25, ease: "easeOut" }}
+                  className="overflow-hidden"
                 >
-                  <div className="p-4">
-                    <p className="font-display text-xs tracking-widest text-accent uppercase">
-                      Tutor
+                  <div className="space-y-1.5 pt-1 pb-3">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={toggleAudio}
+                        aria-pressed={audioOn}
+                        className={cn(
+                          "optic-control inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-[0.6875rem]",
+                          audioOn && "optic-control-live",
+                        )}
+                      >
+                        {audioOn ? (
+                          <Volume2 className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                        ) : (
+                          <VolumeX className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        Score
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCommentary((c) => !c)}
+                        aria-pressed={commentary}
+                        className={cn(
+                          "optic-control inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-[0.6875rem]",
+                          commentary && "optic-control-live",
+                        )}
+                      >
+                        <Radio
+                          className={cn("h-3.5 w-3.5", commentary && "text-accent")}
+                          aria-hidden="true"
+                        />
+                        Commentary
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => togglePref("colorblind")}
+                      aria-pressed={prefs.colorblind}
+                      className={cn(
+                        "optic-control inline-flex min-h-10 w-full items-center justify-center gap-2 px-3 text-[0.6875rem]",
+                        prefs.colorblind && "optic-control-live",
+                      )}
+                    >
+                      <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                      Colourblind labels {prefs.colorblind ? "on" : "off"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => togglePref("reduceMotion")}
+                      aria-pressed={prefs.reduceMotion}
+                      className={cn(
+                        "optic-control inline-flex min-h-10 w-full items-center justify-center px-3 text-[0.6875rem]",
+                        prefs.reduceMotion && "optic-control-live",
+                      )}
+                    >
+                      Reduced motion {prefs.reduceMotion ? "on" : "off"}
+                    </button>
+                    <p className="pt-1 text-[0.6875rem] leading-relaxed text-muted-foreground">
+                      Hover or tab across any cell to preview a move before you spend
+                      it. <kbd>U</kbd> undo · <kbd>R</kbd> reset · <kbd>H</kbd> hint
                     </p>
-                    <p className="mt-2 text-muted-foreground">
-                      {hints[hintLevel - 1]}
-                    </p>
-
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
 
-            <AnimatePresence initial={false}>
-              {(hintLevel > 0 || game.struggling) && !game.result.solved && (
-                <motion.div
-                  key="coach"
-                  initial={rm ? false : { opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: rm ? 0 : 0.3, ease: "easeOut" }}
-                  className="overflow-hidden"
-                >
-                  <CoachPanel
-                    board={game.board}
-                    solution={solutionBoard}
-                    behaviour={player.behaviour}
-                    par={level.par}
-                    moves={game.moves}
-                    reduceMotion={rm}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Everything below is secondary: it stays one tab-stop away but
-                never competes with the board for attention. */}
-            <div className="rounded-2xl border border-border/60 bg-surface/40">
-              <button
-                type="button"
-                onClick={() => setOptionsOpen((o) => !o)}
-                aria-expanded={optionsOpen}
-                aria-controls="play-options"
-                className="inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl px-4 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-foreground"
+          <AnimatePresence initial={false}>
+            {commentary && (
+              <motion.div
+                key="commentary"
+                initial={rm ? false : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: rm ? 0 : 0.28, ease: "easeOut" }}
+                className="space-y-3 overflow-hidden"
               >
-                <span className="inline-flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" aria-hidden="true" />
-                  Options
-                </span>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 transition-transform duration-200",
-                    optionsOpen && "rotate-180",
-                  )}
-                  aria-hidden="true"
-                />
-              </button>
-
-              <AnimatePresence initial={false}>
-                {optionsOpen && (
-                  <motion.div
-                    id="play-options"
-                    key="options"
-                    initial={rm ? false : { opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: rm ? 0 : 0.25, ease: "easeOut" }}
-                    className="overflow-hidden"
-                  >
-                    <div className="space-y-2 px-3 pb-3">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={toggleAudio}
-                          aria-pressed={audioOn}
-                          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-3 text-xs transition-colors hover:bg-surface-2"
-                        >
-                          {audioOn ? (
-                            <Volume2 className="h-4 w-4 text-accent" aria-hidden="true" />
-                          ) : (
-                            <VolumeX className="h-4 w-4" aria-hidden="true" />
-                          )}
-                          Adaptive score
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCommentary((c) => !c)}
-                          aria-pressed={commentary}
-                          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-3 text-xs transition-colors hover:bg-surface-2"
-                        >
-                          <Radio
-                            className={cn("h-4 w-4", commentary && "text-accent")}
-                            aria-hidden="true"
-                          />
-                          Commentary
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => togglePref("colorblind")}
-                        aria-pressed={prefs.colorblind}
-                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-4 text-xs transition-colors hover:bg-surface-2"
-                      >
-                        <Eye className="h-4 w-4" aria-hidden="true" />
-                        Colourblind labels {prefs.colorblind ? "on" : "off"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => togglePref("reduceMotion")}
-                        aria-pressed={prefs.reduceMotion}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-border bg-surface/70 px-4 text-xs transition-colors hover:bg-surface-2"
-                      >
-                        Reduced motion {prefs.reduceMotion ? "on" : "off"}
-                      </button>
-                      <p className="pt-1 text-xs text-muted-foreground">
-                        Hover or tab across any cell to preview a move before you spend it.
-                        Shortcuts: <kbd>U</kbd> undo · <kbd>R</kbd> reset · <kbd>H</kbd> hint
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <AnimatePresence initial={false}>
-              {commentary && (
-                <motion.div
-                  key="commentary"
-                  initial={rm ? false : { opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: rm ? 0 : 0.28, ease: "easeOut" }}
-                  className="space-y-3 overflow-hidden"
-                >
-                  <CommentaryPanel result={game.result} reduceMotion={rm} limit={10} />
-                  <SolveTimeline timeline={game.timeline} reduceMotion={rm} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-          </motion.aside>
-        </div>
+                <CommentaryPanel result={game.result} reduceMotion={rm} limit={10} />
+                <SolveTimeline timeline={game.timeline} reduceMotion={rm} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.aside>
       </div>
 
       {/* Teaching card for new mechanics */}
@@ -802,6 +900,7 @@ function LevelScreen({ levelId }: { levelId: string }) {
         frames={game.timeline}
         colorblind={prefs.colorblind}
         reduceMotion={rm}
+        lesson={getLesson(level.id)}
         actions={
           <>
             {level.reveal ? (

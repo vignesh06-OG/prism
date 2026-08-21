@@ -18,8 +18,11 @@ import { Route as DiscoveriesIndexRouteImport } from './routes/discoveries.index
 import { Route as ExperienceIndexRouteImport } from './routes/experience.index'
 import { Route as IntelligenceIndexRouteImport } from './routes/intelligence.index'
 import { Route as LabIndexRouteImport } from './routes/lab.index'
+import { Route as MissionsIndexRouteImport } from './routes/missions.index'
+import { Route as MissionsMissionIdRouteImport } from './routes/missions.$missionId'
 import { Route as PlayIndexRouteImport } from './routes/play.index'
 import { Route as PlayLevelIdRouteImport } from './routes/play.$levelId'
+import { Route as ProfileIndexRouteImport } from './routes/profile.index'
 import { Route as SandboxIndexRouteImport } from './routes/sandbox.index'
 import { Route as StudioIndexRouteImport } from './routes/studio.index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -72,6 +75,16 @@ const LabIndexRoute = LabIndexRouteImport.update({
   path: '/lab/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MissionsIndexRoute = MissionsIndexRouteImport.update({
+  id: '/missions/',
+  path: '/missions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MissionsMissionIdRoute = MissionsMissionIdRouteImport.update({
+  id: '/missions/$missionId',
+  path: '/missions/$missionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlayIndexRoute = PlayIndexRouteImport.update({
   id: '/play/',
   path: '/play/',
@@ -80,6 +93,11 @@ const PlayIndexRoute = PlayIndexRouteImport.update({
 const PlayLevelIdRoute = PlayLevelIdRouteImport.update({
   id: '/play/$levelId',
   path: '/play/$levelId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileIndexRoute = ProfileIndexRouteImport.update({
+  id: '/profile/',
+  path: '/profile/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SandboxIndexRoute = SandboxIndexRouteImport.update({
@@ -110,12 +128,15 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
   '/play/$levelId': typeof PlayLevelIdRoute
   '/discoveries/': typeof DiscoveriesIndexRoute
   '/experience/': typeof ExperienceIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/lab/': typeof LabIndexRoute
+  '/missions/': typeof MissionsIndexRoute
   '/play/': typeof PlayIndexRoute
+  '/profile/': typeof ProfileIndexRoute
   '/sandbox/': typeof SandboxIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -127,12 +148,15 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
   '/play/$levelId': typeof PlayLevelIdRoute
   '/discoveries': typeof DiscoveriesIndexRoute
   '/experience': typeof ExperienceIndexRoute
   '/intelligence': typeof IntelligenceIndexRoute
   '/lab': typeof LabIndexRoute
+  '/missions': typeof MissionsIndexRoute
   '/play': typeof PlayIndexRoute
+  '/profile': typeof ProfileIndexRoute
   '/sandbox': typeof SandboxIndexRoute
   '/studio': typeof StudioIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -145,12 +169,15 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
   '/play/$levelId': typeof PlayLevelIdRoute
   '/discoveries/': typeof DiscoveriesIndexRoute
   '/experience/': typeof ExperienceIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/lab/': typeof LabIndexRoute
+  '/missions/': typeof MissionsIndexRoute
   '/play/': typeof PlayIndexRoute
+  '/profile/': typeof ProfileIndexRoute
   '/sandbox/': typeof SandboxIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -164,12 +191,15 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/missions/$missionId'
     | '/play/$levelId'
     | '/discoveries/'
     | '/experience/'
     | '/intelligence/'
     | '/lab/'
+    | '/missions/'
     | '/play/'
+    | '/profile/'
     | '/sandbox/'
     | '/studio/'
     | '/.lovable/oauth/consent'
@@ -181,12 +211,15 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/missions/$missionId'
     | '/play/$levelId'
     | '/discoveries'
     | '/experience'
     | '/intelligence'
     | '/lab'
+    | '/missions'
     | '/play'
+    | '/profile'
     | '/sandbox'
     | '/studio'
     | '/.lovable/oauth/consent'
@@ -198,12 +231,15 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/missions/$missionId'
     | '/play/$levelId'
     | '/discoveries/'
     | '/experience/'
     | '/intelligence/'
     | '/lab/'
+    | '/missions/'
     | '/play/'
+    | '/profile/'
     | '/sandbox/'
     | '/studio/'
     | '/.lovable/oauth/consent'
@@ -216,12 +252,15 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  MissionsMissionIdRoute: typeof MissionsMissionIdRoute
   PlayLevelIdRoute: typeof PlayLevelIdRoute
   DiscoveriesIndexRoute: typeof DiscoveriesIndexRoute
   ExperienceIndexRoute: typeof ExperienceIndexRoute
   IntelligenceIndexRoute: typeof IntelligenceIndexRoute
   LabIndexRoute: typeof LabIndexRoute
+  MissionsIndexRoute: typeof MissionsIndexRoute
   PlayIndexRoute: typeof PlayIndexRoute
+  ProfileIndexRoute: typeof ProfileIndexRoute
   SandboxIndexRoute: typeof SandboxIndexRoute
   StudioIndexRoute: typeof StudioIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
@@ -293,6 +332,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LabIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/missions/': {
+      id: '/missions/'
+      path: '/missions'
+      fullPath: '/missions/'
+      preLoaderRoute: typeof MissionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/missions/$missionId': {
+      id: '/missions/$missionId'
+      path: '/missions/$missionId'
+      fullPath: '/missions/$missionId'
+      preLoaderRoute: typeof MissionsMissionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/play/': {
       id: '/play/'
       path: '/play'
@@ -305,6 +358,13 @@ declare module '@tanstack/react-router' {
       path: '/play/$levelId'
       fullPath: '/play/$levelId'
       preLoaderRoute: typeof PlayLevelIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/': {
+      id: '/profile/'
+      path: '/profile'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sandbox/': {
@@ -345,12 +405,15 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  MissionsMissionIdRoute: MissionsMissionIdRoute,
   PlayLevelIdRoute: PlayLevelIdRoute,
   DiscoveriesIndexRoute: DiscoveriesIndexRoute,
   ExperienceIndexRoute: ExperienceIndexRoute,
   IntelligenceIndexRoute: IntelligenceIndexRoute,
   LabIndexRoute: LabIndexRoute,
+  MissionsIndexRoute: MissionsIndexRoute,
   PlayIndexRoute: PlayIndexRoute,
+  ProfileIndexRoute: ProfileIndexRoute,
   SandboxIndexRoute: SandboxIndexRoute,
   StudioIndexRoute: StudioIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
@@ -359,3 +422,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

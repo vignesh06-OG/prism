@@ -4,6 +4,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The optical bench layout only makes sense when the chamber is wider than it
+   is tall. On portrait or square viewports the rail moves below the board so
+   the board can claim the height instead of floating in dead space. */
+@custom-variant bench (@media (min-width: 1024px) and (min-aspect-ratio: 5 / 4));
+
 /*
  * PRISM design system — light is the only true colour source.
  * Canvas is a deep indigo near-black; every accent comes from a beam.
@@ -64,13 +69,16 @@
 }
 
 :root {
-  --radius: 0.9rem;
+  /* Instrument radius. Optical hardware is machined, not bubbly — large
+     uniform corner rounding is the single strongest "generic dashboard" tell. */
+  --radius: 0.35rem;
 
-  --background: oklch(0.16 0.035 275);
+  /* The chamber is darker than the panels so emitted light always wins. */
+  --background: oklch(0.1 0.028 275);
   --foreground: oklch(0.96 0.01 270);
-  --surface: oklch(0.21 0.04 275);
-  --surface-2: oklch(0.26 0.045 277);
-  --card: oklch(0.21 0.04 275);
+  --surface: oklch(0.155 0.032 275);
+  --surface-2: oklch(0.21 0.038 277);
+  --card: oklch(0.155 0.032 275);
   --card-foreground: oklch(0.96 0.01 270);
   --popover: oklch(0.21 0.04 275);
   --popover-foreground: oklch(0.96 0.01 270);
@@ -346,4 +354,160 @@
   transform-box: fill-box;
   transform-origin: center;
   animation: emitter-pulse 2.6s ease-in-out infinite;
+}
+
+/* ============================================================
+   OPTICAL CHROME
+   The interface is built from the same materials as the game:
+   vacuum, hairline optical bench edges, etched instrument labels
+   and light that bleeds instead of backgrounds that fill.
+   ============================================================ */
+
+:root {
+  /* A hairline is the only structural line in the whole interface. */
+  --hairline: oklch(1 0 0 / 0.09);
+  --hairline-strong: oklch(1 0 0 / 0.16);
+  /* Light bleeds outward from an element instead of sitting behind it. */
+  --bleed-primary: 0 0 0 1px oklch(0.78 0.16 195 / 0.45),
+    0 0 22px -4px oklch(0.78 0.16 195 / 0.55);
+  --bleed-accent: 0 0 0 1px oklch(0.72 0.19 320 / 0.45),
+    0 0 22px -4px oklch(0.72 0.19 320 / 0.5);
+  --bleed-soft: 0 0 18px -6px oklch(0.78 0.16 195 / 0.35);
+}
+
+/* The chamber: a vacuum with a vignette, so the board is the brightest
+   object on screen no matter how tall the viewport is. */
+@utility chamber {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(120% 90% at 50% -10%, oklch(0.72 0.19 320 / 0.1), transparent 55%),
+    radial-gradient(90% 70% at 50% 110%, oklch(0.78 0.16 195 / 0.08), transparent 60%),
+    radial-gradient(150% 120% at 50% 45%, transparent 35%, oklch(0.04 0.02 275 / 0.75) 100%);
+}
+
+/* Photographic grain. Dark optical interfaces read as flat vector art
+   without it; this gives the vacuum physical presence. */
+@utility grain {
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.32;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+}
+
+/* Etched instrument label. Machine-engraved, never a heading. */
+@utility etch {
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--muted-foreground) 82%, transparent);
+}
+
+/* Optical bench edge: structure comes from a single hairline rule,
+   not from a filled rounded container. */
+@utility bench-top {
+  border-top: 1px solid var(--hairline);
+}
+
+@utility bench-left {
+  border-left: 1px solid var(--hairline);
+}
+
+/* A control machined out of the bench. No fill at rest; on hover the
+   light behind it leaks through the edge. */
+@utility optic-control {
+  position: relative;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface) 55%, transparent);
+  color: var(--foreground);
+  transition:
+    border-color 140ms ease,
+    box-shadow 200ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+
+  &:hover:not(:disabled) {
+    border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+    box-shadow: var(--bleed-soft);
+  }
+
+  &:active:not(:disabled) {
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.32;
+  }
+}
+
+@utility optic-control-live {
+  border-color: color-mix(in oklab, var(--primary) 60%, transparent);
+  box-shadow: var(--bleed-primary);
+}
+
+/* A rule that reads as a dormant fibre; the fill inside it is the signal. */
+@utility fibre {
+  position: relative;
+  height: 1px;
+  width: 100%;
+  background: var(--hairline);
+  overflow: visible;
+}
+
+@keyframes photon-drift {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(400%);
+    opacity: 0;
+  }
+}
+
+@utility photon-drift {
+  animation: photon-drift 4.5s linear infinite;
+}
+
+@keyframes lens-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@utility lens-breathe {
+  animation: lens-breathe 3.4s ease-in-out infinite;
+}
+
+
+/* The board claims as much of the chamber as the shape of the viewport allows:
+   height-bound on a wide bench, width-bound when the rail sits underneath. */
+.board-frame {
+  width: 100%;
+  margin-inline: auto;
+  max-width: min(100%, calc(100dvh - 26rem));
+}
+
+@media (min-width: 1024px) and (min-aspect-ratio: 5 / 4) {
+  .board-frame {
+    max-width: min(100%, calc(min(100dvh, 54rem) - 11.5rem));
+  }
 }

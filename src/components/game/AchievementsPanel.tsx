@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   unlocked: string[];
-  className?: string;
-  reduceMotion?: boolean;
+  className?: string | undefined;
+  reduceMotion?: boolean | undefined;
 }
 
 const TIER = {
@@ -19,13 +19,11 @@ const TIER = {
 export function AchievementsPanel({ unlocked, className, reduceMotion = false }: Props) {
   const set = new Set(unlocked);
   return (
-    <section className={cn("rounded-2xl border border-border bg-surface/60 p-4", className)}>
+    <section className={cn("border-t border-[var(--hairline)] pt-4", className)}>
       <header className="mb-3 flex items-center gap-2">
-        <Award className="h-4 w-4 text-accent" aria-hidden="true" />
-        <h2 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-          Mastery
-        </h2>
-        <span className="ml-auto text-[11px] text-muted-foreground">
+        <Award className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+        <h2 className="etch">Mastery</h2>
+        <span className="ml-auto font-display text-[0.65rem] tabular-nums text-muted-foreground">
           {set.size}/{ACHIEVEMENTS.length}
         </span>
       </header>
@@ -39,8 +37,10 @@ export function AchievementsPanel({ unlocked, className, reduceMotion = false }:
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: reduceMotion ? 0 : 0.25, delay: reduceMotion ? 0 : i * 0.03 }}
               className={cn(
-                "rounded-xl border bg-surface-2/40 px-3 py-2.5 transition-colors",
-                on ? TIER[a.tier] : "border-border/60 text-muted-foreground",
+                "rounded-[3px] border px-3 py-2.5 transition-colors",
+                on
+                  ? cn(TIER[a.tier], "bg-white/[0.03]")
+                  : "border-[var(--hairline)] text-muted-foreground/70",
               )}
             >
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -54,7 +54,7 @@ export function AchievementsPanel({ unlocked, className, reduceMotion = false }:
                   {a.tier}
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">{a.blurb}</p>
+              <p className="mt-0.5 text-[0.75rem] leading-relaxed text-muted-foreground/80">{a.blurb}</p>
             </motion.li>
           );
         })}

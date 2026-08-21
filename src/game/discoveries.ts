@@ -138,7 +138,41 @@ export const DISCOVERIES: Discovery[] = [
     tryThis: "See how many bounces you can make before the beam fades out.",
     realWorld: "Fibre optics, light pipes in car headlights, and endoscopes.",
   },
+  {
+    id: "propagation",
+    title: "Light keeps going until something stops it",
+    beginner: "A beam travels in a straight line until a piece changes its path.",
+    curious:
+      "Nothing in the engine curves a beam. Every direction change you see is a piece deciding it — which means every path is something you can predict.",
+    explorer:
+      "Rectilinear propagation in a homogeneous medium: with no index gradient, the ray equation reduces to a straight line, and all path changes come from discrete interfaces.",
+    tryThis: "Clear a lane and watch how far one beam runs untouched.",
+    realWorld: "Shadows, laser alignment rigs, and surveying with a sight line.",
+  },
+  {
+    id: "superposition",
+    title: "Two beams satisfied one target together",
+    beginner: "A target lit up from two beams arriving at once — neither was enough alone.",
+    curious:
+      "The target checks the total set of channels it receives. Two separate deliveries can add up to exactly what it demands.",
+    explorer:
+      "Linear superposition: fields add independently, so the delivered channel set is the union of the incident sets. Prism models this as a bitwise OR at the receiving cell.",
+    tryThis: "Take away one of the two beams and watch the target reject the remainder.",
+    realWorld: "Stage lighting mixes, projector colour channels, and interference experiments.",
+  },
+  {
+    id: "reciprocity",
+    title: "You ran a splitting piece backwards",
+    beginner: "A piece that normally divides light instead merged several beams into one.",
+    curious:
+      "Nothing about the piece changed — you changed which side the light entered from. The rule reads the same in both directions.",
+    explorer:
+      "Optical reciprocity (Helmholtz): the transmission between two points is unchanged when source and detector are exchanged, so a divider is also a combiner.",
+    tryThis: "Drive three channels into one edge and see what single path leaves.",
+    realWorld: "Fibre couplers, antenna reciprocity, and combiner optics in projectors.",
+  },
 ];
+
 
 export const DISCOVERY_BY_ID = new Map(DISCOVERIES.map((d) => [d.id, d]));
 
@@ -182,6 +216,10 @@ export function detect(result: TraceResult, board: Board): string[] {
   }
   if (reflects >= 5) found.add("chain");
 
+  // Law I: something actually travelled. Cheapest possible proof, but it is
+  // still a proof — read off the trace, not off the level definition.
+  if (result.segments.length > 0) found.add("propagation");
+
   // Colour discoveries are read off delivered light, not off pieces, so they
   // only fire once the player has genuinely combined beams.
   for (const [k, piece] of Object.entries(board.cells)) {
@@ -197,14 +235,42 @@ export function detect(result: TraceResult, board: Board): string[] {
     const combined = hues.size > 1;
     if (bits(got) > 1 && combined) found.add("mixing");
     if (got === 7 && combined) found.add("white");
+    // Law VI: the target is *satisfied*, and no single arriving beam could have
+    // done it alone. That is superposition, not merely mixing.
+    if (
+      got === (piece.color ?? 7) &&
+      bits(got) > 1 &&
+      incoming.length > 1 &&
+      incoming.every((s) => bits(s.color) < bits(got))
+    ) {
+      found.add("superposition");
+    }
   }
   for (const s of result.segments) {
     if (bits(s.color) > 1 && (s.meta?.sources.length ?? 1) > 1) found.add("mixing");
     if (s.color === 7 && (s.meta?.sources.length ?? 1) > 1) found.add("white");
   }
 
+  // Law VII: a dividing piece used in reverse. Proof is a splitter or prism
+  // where several narrower channels arrive and one wider channel leaves.
+  for (const [k, piece] of Object.entries(board.cells)) {
+    if (piece.kind !== "splitter" && piece.kind !== "prism") continue;
+    const [cx, cy] = k.split(",").map(Number);
+    const touching = result.segments.filter(
+      (s) => (s.x1 === cx && s.y1 === cy) || (s.x2 === cx && s.y2 === cy),
+    );
+    if (touching.length < 3) continue;
+    const widest = Math.max(...touching.map((s) => bits(s.color)));
+    const narrow = touching.filter((s) => bits(s.color) < widest);
+    const narrowUnion = narrow.reduce((m, s) => m | s.color, 0);
+    if (widest > 1 && narrow.length >= 2 && bits(narrowUnion) >= widest) {
+      found.add("reciprocity");
+    }
+  }
+
   return [...found];
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Persistence — untrusted localStorage, parsed defensively.            */
